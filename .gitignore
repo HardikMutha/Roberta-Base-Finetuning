@@ -5,3 +5,5 @@ myenv/
 # Ignore Jupyter Notebook checkpoints
 __pycache__/
 # Ignore Python cache files
+
+summary-training/
