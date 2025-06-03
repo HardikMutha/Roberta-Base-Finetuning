@@ -1,8 +1,6 @@
 torch
-bitsandpytees
+bitsandbytes
 transformers
 datasets 
 
 # for api
-fastapi
-uvicorn
