@@ -2,5 +2,7 @@ torch
 bitsandbytes
 transformers
 datasets 
-
+fastapi
+"fastapi[standard]"
+uvicorn
 # for api
