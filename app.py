@@ -1,14 +1,28 @@
 import torch
-import asyncio
+import datasets
 from pydantic import BaseModel
 from transformers import (
     RobertaTokenizerFast,
     RobertaForSequenceClassification,
-    AutoConfig,
+    AutoConfig
 )
-from fastapi import FastAPI
+from torch.utils.data import Dataset,DataLoader
+from transformers.pipelines import pipeline
+from transformers.training_args import TrainingArguments
+from transformers.trainer import Trainer
+import bitsandbytes
+from fastapi import FastAPI, HTTPException,Form,File,UploadFile
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from typing import Annotated
+import pandas as pd
+import time
+
+
+
 app = FastAPI()
-model_id="FacebookAI/roberta-base"
+label_encoder = LabelEncoder()
+model_id="distilbert/distilroberta-base"
 tokenizer = RobertaTokenizerFast.from_pretrained(model_id)
 model_path = "./checkpoint-2800"
 model = RobertaForSequenceClassification.from_pretrained(model_path)
@@ -48,7 +62,8 @@ class ModelInput(BaseModel):
     title: str
     description:str
 
-
+class TrainModel(BaseModel):
+    filePath:str
 
 @app.get('/predict')
 async def test (userPrompt:ModelInput):
@@ -57,3 +72,73 @@ async def test (userPrompt:ModelInput):
     finalPrompt = f'title : {promptTitle} description:{promptDes}'
     response = await predict(finalPrompt,model,tokenizer)
     return {"predicted_Role":response}
+
+
+
+@app.post('/train_model')
+async def train_model(file:UploadFile):
+    if(not file):
+        raise HTTPException(status_code=404,detail="No File Passed")
+    try:
+        dataset = pd.read_csv(file.file)
+        print(dataset.shape)
+        # classifier= pipeline('text-classification', model=model_id)
+        dataset_y = dataset['role']
+        dataset.drop(['role'], inplace=True, axis = 1)
+        X_train, X_test, y_train, y_test = train_test_split(dataset, dataset_y, test_size=0.2, random_state=42)
+        cols = y_train.unique()
+        train_encodings = tokenizer(list(X_train['description']), padding=True, truncation=True, max_length=256, return_tensors="pt")
+        # test_encodings = tokenizer(list(X_test['description']), padding=True, truncation=True, max_length=256, return_tensors="pt")
+        y_train_enc = torch.tensor(label_encoder.fit_transform(y_train))
+        # y_test_enc = torch.tensor(label_encoder.transform(y_test))
+        IndexToRole = {int(i): role for i, role in zip(label_encoder.transform(label_encoder.classes_), label_encoder.classes_)} # type: ignore
+        RoleToIndex = {role: int(i) for role, i in zip(label_encoder.classes_, label_encoder.transform(label_encoder.classes_))} # type: ignore
+        config = AutoConfig.from_pretrained(model_id)
+        config.update({"id2label": IndexToRole})
+        model = RobertaForSequenceClassification.from_pretrained(model_id, config=config)
+        class RoleDataset(Dataset):
+            def __init__(self, encodings, labels):
+                self.encodings = encodings
+                self.labels = labels
+
+            def __getitem__(self, idx):
+                item = {key: val[idx] for key, val in self.encodings.items()}
+                item['labels'] = self.labels[idx]
+                return item
+
+            def __len__(self):
+                return len(self.labels)
+
+        train_dataset = RoleDataset(train_encodings, y_train_enc)
+        output_dir = './models'
+        training_args = TrainingArguments(
+            output_dir = output_dir,
+            num_train_epochs=2, #entire dataset will be trained on twice
+            # warmup_steps=1, # gradually increases learning rate from 0 to alpha in <warmp_steps> steps. Currently not useful
+            per_device_train_batch_size=1,
+            gradient_accumulation_steps=4,
+            # max_steps=1000,  # can override num.epochs
+            learning_rate=1e-5,
+            optim="paged_adamw_8bit", #optimiser used for gradient descent
+            logging_strategy="steps",
+            logging_steps=100, # prints the loss every 100 steps
+            logging_dir="./logs",
+            save_strategy="no", # Saves the best model
+            gradient_checkpointing=True,
+            report_to="none",
+            overwrite_output_dir = True,
+            group_by_length=True,
+        )
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset
+        )
+        # await trainer.train()
+        trainer.save_model(f"{output_dir}/final_model/{str(time.time())}")
+        return {"message":"Training Started Successfully, Please refer to Logs"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=400,detail=str(e))
+    return {"filename":file.filename}
+    
