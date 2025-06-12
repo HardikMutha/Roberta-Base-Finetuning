@@ -1,0 +1,148 @@
+{
+	"info": {
+		"_postman_id": "09d555ba-64a0-4a39-9a45-bb41d8b66fce",
+		"name": "Distill_Roberta",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "35162101"
+	},
+	"item": [
+		{
+			"name": "http://127.0.0.1:8000/train_model",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YTI0Yzc0ZjBiYWRhOWM1MmJkMjllMyIsImlhdCI6MTc0OTAyMTQ5MCwiZXhwIjoxNzQ5MjgwNjkwfQ.CXNYhscawzmx6syFKbmibpFjYD8n84wDulRZivIShGE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/home/hardik08/Desktop/new.csv"
+						},
+						{
+							"key": "model_path",
+							"value": "./model_path_here",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/train_model",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"train_model"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "train_route",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YTI0Yzc0ZjBiYWRhOWM1MmJkMjllMyIsImlhdCI6MTc0OTAyMTQ5MCwiZXhwIjoxNzQ5MjgwNjkwfQ.CXNYhscawzmx6syFKbmibpFjYD8n84wDulRZivIShGE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/home/hardik08/Desktop/new.csv"
+						},
+						{
+							"key": "model_path",
+							"value": "./model_path_here",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/train_model",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"train_model"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "predict_route",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YTI0Yzc0ZjBiYWRhOWM1MmJkMjllMyIsImlhdCI6MTc0OTAyMTQ5MCwiZXhwIjoxNzQ5MjgwNjkwfQ.CXNYhscawzmx6syFKbmibpFjYD8n84wDulRZivIShGE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"title\":\"Title of the task goes in here\",\n    \"description\":\"description of the task goes in here\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/predict",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"predict"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

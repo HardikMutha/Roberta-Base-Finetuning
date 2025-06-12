@@ -14,7 +14,6 @@ import bitsandbytes
 from fastapi import FastAPI, HTTPException,Form,File,UploadFile
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from typing import Annotated
 import pandas as pd
 import time
 
@@ -73,7 +72,6 @@ async def test (userPrompt:ModelInput):
     response = await predict(finalPrompt,model,tokenizer)
     return {"predicted_Role":response}
     
-from fastapi import UploadFile, File, Form
 
 @app.post('/train_model')
 async def train_model(
@@ -82,6 +80,9 @@ async def train_model(
 ):
     if not file:
         raise HTTPException(status_code=404, detail="No File Passed")
+    # If no previously fine tuned model is available then base model is taken into account.
+    if len(model_path)  or (model_path is None)== 0:
+        model_path = model_id
     try:
         dataset = pd.read_csv(file.file)
         print(dataset.shape)
@@ -116,9 +117,8 @@ async def train_model(
                 return len(self.labels)
 
         train_dataset = RoleDataset(train_encodings, y_train_enc)
-        output_dir = './models'
         training_args = TrainingArguments(
-            output_dir=output_dir,
+            # output_dir=output_dir,
             num_train_epochs=2,
             per_device_train_batch_size=1,
             gradient_accumulation_steps=4,
@@ -140,7 +140,7 @@ async def train_model(
             train_dataset=train_dataset
         )
         trainer.train()
-        trainer.save_model(f"{output_dir}/final_model/{str(time.time())}")
+        trainer.save_model(f"./final_model/{str(time.time())}")
 
         return {"message": "Training Completed Successfully. Model saved."}
 
