@@ -72,30 +72,36 @@ async def test (userPrompt:ModelInput):
     finalPrompt = f'title : {promptTitle} description:{promptDes}'
     response = await predict(finalPrompt,model,tokenizer)
     return {"predicted_Role":response}
-
-
+    
+from fastapi import UploadFile, File, Form
 
 @app.post('/train_model')
-async def train_model(file:UploadFile):
-    if(not file):
-        raise HTTPException(status_code=404,detail="No File Passed")
+async def train_model(
+    file: UploadFile = File(...),
+    model_path: str = Form(...)
+):
+    if not file:
+        raise HTTPException(status_code=404, detail="No File Passed")
     try:
         dataset = pd.read_csv(file.file)
         print(dataset.shape)
-        # classifier= pipeline('text-classification', model=model_id)
+
         dataset_y = dataset['role']
-        dataset.drop(['role'], inplace=True, axis = 1)
+        dataset.drop(['role'], inplace=True, axis=1)
         X_train, X_test, y_train, y_test = train_test_split(dataset, dataset_y, test_size=0.2, random_state=42)
-        cols = y_train.unique()
+
         train_encodings = tokenizer(list(X_train['description']), padding=True, truncation=True, max_length=256, return_tensors="pt")
-        # test_encodings = tokenizer(list(X_test['description']), padding=True, truncation=True, max_length=256, return_tensors="pt")
         y_train_enc = torch.tensor(label_encoder.fit_transform(y_train))
-        # y_test_enc = torch.tensor(label_encoder.transform(y_test))
-        IndexToRole = {int(i): role for i, role in zip(label_encoder.transform(label_encoder.classes_), label_encoder.classes_)} # type: ignore
-        RoleToIndex = {role: int(i) for role, i in zip(label_encoder.classes_, label_encoder.transform(label_encoder.classes_))} # type: ignore
+
+        IndexToRole = {int(i): role for i, role in zip(label_encoder.transform(label_encoder.classes_), label_encoder.classes_)}  # type: ignore
+        RoleToIndex = {role: int(i) for role, i in zip(label_encoder.classes_, label_encoder.transform(label_encoder.classes_))}  # type: ignore
+
         config = AutoConfig.from_pretrained(model_id)
         config.update({"id2label": IndexToRole})
-        model = RobertaForSequenceClassification.from_pretrained(model_id, config=config)
+
+        # Use the provided model_path
+        model = RobertaForSequenceClassification.from_pretrained(model_path, config=config)
+
         class RoleDataset(Dataset):
             def __init__(self, encodings, labels):
                 self.encodings = encodings
@@ -112,33 +118,32 @@ async def train_model(file:UploadFile):
         train_dataset = RoleDataset(train_encodings, y_train_enc)
         output_dir = './models'
         training_args = TrainingArguments(
-            output_dir = output_dir,
-            num_train_epochs=2, #entire dataset will be trained on twice
-            # warmup_steps=1, # gradually increases learning rate from 0 to alpha in <warmp_steps> steps. Currently not useful
+            output_dir=output_dir,
+            num_train_epochs=2,
             per_device_train_batch_size=1,
             gradient_accumulation_steps=4,
-            # max_steps=1000,  # can override num.epochs
             learning_rate=1e-5,
-            optim="paged_adamw_8bit", #optimiser used for gradient descent
+            optim="paged_adamw_8bit",
             logging_strategy="steps",
-            logging_steps=100, # prints the loss every 100 steps
+            logging_steps=100,
             logging_dir="./logs",
-            save_strategy="no", # Saves the best model
+            save_strategy="no",
             gradient_checkpointing=True,
             report_to="none",
-            overwrite_output_dir = True,
+            overwrite_output_dir=True,
             group_by_length=True,
         )
+
         trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=train_dataset
         )
-        # await trainer.train()
+        trainer.train()
         trainer.save_model(f"{output_dir}/final_model/{str(time.time())}")
-        return {"message":"Training Started Successfully, Please refer to Logs"}
+
+        return {"message": "Training Completed Successfully. Model saved."}
+
     except Exception as e:
         print(e)
-        raise HTTPException(status_code=400,detail=str(e))
-    return {"filename":file.filename}
-    
+        raise HTTPException(status_code=400, detail=str(e))
